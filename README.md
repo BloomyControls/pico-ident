@@ -20,7 +20,7 @@ sudo apt install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
 First, you must configure the build system:
 
 ```
-cmake -S . -B build
+cmake -B build
 ```
 
 This step may take quite some time, as it will download the Pi Pico SDK. If you
