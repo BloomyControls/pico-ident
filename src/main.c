@@ -70,6 +70,29 @@ void store_devinfo(const struct device_info* info) {
   }
 }
 
+// On startup, it's possible for the flash to be filled with 0xFF (this happens
+// when the flash is erased). Obviously this doesn't work well when trying to
+// read null-terminated strings from it, so we can check each field of the
+// device info stored in flash and clear it if it's full of Fs.
+void validate_devinfo() {
+  struct device_info devinfo = *flash_devinfo;
+
+  if (devinfo.mfg[0] == 0xFF) devinfo.mfg[0] = '\0';
+  if (devinfo.name[0] == 0xFF) devinfo.name[0] = '\0';
+  if (devinfo.ver[0] == 0xFF) devinfo.ver[0] = '\0';
+  if (devinfo.date[0] == 0xFF) devinfo.date[0] = '\0';
+  if (devinfo.part[0] == 0xFF) devinfo.part[0] = '\0';
+  if (devinfo.mfgserial[0] == 0xFF) devinfo.mfgserial[0] = '\0';
+  if (devinfo.user1[0] == 0xFF) devinfo.user1[0] = '\0';
+  if (devinfo.user2[0] == 0xFF) devinfo.user2[0] = '\0';
+  if (devinfo.user3[0] == 0xFF) devinfo.user3[0] = '\0';
+  if (devinfo.user4[0] == 0xFF) devinfo.user4[0] = '\0';
+
+  if (memcmp(&devinfo, flash_devinfo, sizeof(devinfo)) != 0) {
+    store_devinfo(&devinfo);
+  }
+}
+
 // handle a null-terminated message
 void handle_msg(char* msg) {
   if (msg == NULL) return;
@@ -174,6 +197,8 @@ int main(void) {
   gpio_init(WRLOCK_IN);
   gpio_set_dir(WRLOCK_IN, GPIO_IN);
   gpio_pull_down(WRLOCK_IN);
+
+  validate_devinfo();
 
   // Get the board ID (we only need to do this once)
   pico_get_unique_board_id_string(board_id, sizeof(board_id));
