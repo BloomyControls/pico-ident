@@ -17,13 +17,17 @@ add_executable(pico-ident src/main.c)
 target_link_libraries("${PROJECT_NAME}"
   pico_stdlib
   pico_unique_id
-  hardware_flash)
+  hardware_flash
+  hardware_gpio)
 
 # add -DUSB_SERIAL=1 when configuring to use USB (9600 baud) instead of UART
 if(USB_SERIAL)
+  message(STATUS "Using USB serial")
   # enable USB output, disable UART
   pico_enable_stdio_usb("${PROJECT_NAME}" 1)
   pico_enable_stdio_uart("${PROJECT_NAME}" 0)
+else()
+  message(STATUS "Using UART")
 endif()
 
 pico_add_extra_outputs("${PROJECT_NAME}" unique_board_id)

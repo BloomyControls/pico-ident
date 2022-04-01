@@ -3,9 +3,16 @@
 #include <string.h>
 
 #include "hardware/flash.h"
+#include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
+
+/*
+ * GPIO pins for write lock.
+ */
+#define WRLOCK_OUT (14)
+#define WRLOCK_IN (15)
 
 /*
  * Offset 512K from the start of the flash.
@@ -38,9 +45,10 @@ struct device_info {
 
 // Size of the device info structure + additional space to make it a multiple of
 // the flash page size (all writes must be whole numbers of pages).
-#define DEVINFO_SIZE (((sizeof(struct device_info) / FLASH_PAGE_SIZE) +     \
-                       !!(sizeof(struct device_info) % FLASH_PAGE_SIZE)) *  \
-                       FLASH_PAGE_SIZE)
+#define DEVINFO_SIZE                                    \
+  (((sizeof(struct device_info) / FLASH_PAGE_SIZE) +    \
+    !!(sizeof(struct device_info) % FLASH_PAGE_SIZE)) * \
+   FLASH_PAGE_SIZE)
 
 // Device info in flash (read-only, you cannot write through this pointer).
 const struct device_info* flash_devinfo =
@@ -50,24 +58,25 @@ const struct device_info* flash_devinfo =
 char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 
 void store_devinfo(const struct device_info* info) {
-  uint32_t ints = save_and_disable_interrupts();
-  flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
-  restore_interrupts(ints);
-
-  if (info != NULL) {
-    static uint8_t buf[DEVINFO_SIZE] = {0};
-    memcpy(buf, info, sizeof(*info));
-
-    ints = save_and_disable_interrupts();
-    flash_range_program(FLASH_TARGET_OFFSET, buf, DEVINFO_SIZE);
+  if (!gpio_get(WRLOCK_IN)) {
+    uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
     restore_interrupts(ints);
+
+    if (info != NULL) {
+      static uint8_t buf[DEVINFO_SIZE] = {0};
+      memcpy(buf, info, sizeof(*info));
+
+      ints = save_and_disable_interrupts();
+      flash_range_program(FLASH_TARGET_OFFSET, buf, DEVINFO_SIZE);
+      restore_interrupts(ints);
+    }
   }
 }
 
 // handle a null-terminated message
 void handle_msg(char* msg) {
-  if (msg == NULL)
-    return;
+  if (msg == NULL) return;
 
   static struct device_info wrinfo;
 
@@ -146,6 +155,14 @@ void handle_msg(char* msg) {
 int main(void) {
   stdio_init_all();
 
+  gpio_init(WRLOCK_OUT);
+  gpio_set_dir(WRLOCK_OUT, GPIO_OUT);
+  gpio_put(WRLOCK_OUT, 1);
+
+  gpio_init(WRLOCK_IN);
+  gpio_set_dir(WRLOCK_IN, GPIO_IN);
+  gpio_pull_down(WRLOCK_IN);
+
   // Get the board ID (we only need to do this once)
   pico_get_unique_board_id_string(board_id, sizeof(board_id));
 
@@ -154,8 +171,7 @@ int main(void) {
   int c;
   while (1) {
     c = getchar_timeout_us(10);
-    if (c == PICO_ERROR_TIMEOUT)
-      continue;
+    if (c == PICO_ERROR_TIMEOUT) continue;
 
     if (c == '\r') {
       rdbuf[idx] = '\0';
