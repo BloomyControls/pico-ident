@@ -30,7 +30,8 @@ struct device_info {
   char name[64];
   char ver[64];
   char date[64];
-
+  char part[64];
+  char mfgserial[64];
   char user1[64];
   char user2[64];
   char user3[64];
@@ -106,6 +107,22 @@ void handle_msg(char* msg) {
     store_devinfo(&wrinfo);
   } else if (strncmp(msg, "DATE?", 5) == 0) {
     printf("%s\n", flash_devinfo->date);
+  } else if (strncmp(msg, "PART=", 5) == 0) {
+    msg += 5;
+    msg[strnlen(msg, 63)] = '\0';
+    wrinfo = *flash_devinfo;
+    strncpy(wrinfo.part, msg, 64);
+    store_devinfo(&wrinfo);
+  } else if (strncmp(msg, "PART?", 5) == 0) {
+    printf("%s\n", flash_devinfo->part);
+  } else if (strncmp(msg, "MFGSERIAL=", 10) == 0) {
+    msg += 10;
+    msg[strnlen(msg, 63)] = '\0';
+    wrinfo = *flash_devinfo;
+    strncpy(wrinfo.mfgserial, msg, 64);
+    store_devinfo(&wrinfo);
+  } else if (strncmp(msg, "MFGSERIAL?", 10) == 0) {
+    printf("%s\n", flash_devinfo->mfgserial);
   } else if (strncmp(msg, "SERIAL?", 7) == 0) {
     printf("%s\n", board_id);
   } else if (strncmp(msg, "USER1=", 6) == 0) {
