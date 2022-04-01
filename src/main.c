@@ -21,12 +21,6 @@
 #define FLASH_TARGET_OFFSET (512 * 1024)
 
 /*
- * All writes must be a whole number of pages, so we'll use the page size (256)
- * as our maximum length (or a multiple thereof).
- */
-#define MAX_LEN (FLASH_PAGE_SIZE)
-
-/*
  * This is the structure containing the info to store.
  *
  * Each of the strings in this structure is assumed to be null-terminated.
