@@ -1,9 +1,59 @@
-# Raspberry Pi Pico System Identification
+# Raspberry Pi Pico-Based System Identification
 
 This project uses a Raspberry Pi Pico to identify a system and store various
 information about the system, settable and retrievable over UART or USB.
+Additionally, writing can be disabled by jumping GPIO pins 14 and 15 together
+(pins 19 and 20 on the board).
 
-## Requirements
+## Information Fields
+
+There are 10 R/W information fields stored on the device. It's also possible to
+read the pico's unique 64-bit identifier as a hex string, but of course this is
+read-only. The idea is that the pico's serial number can always be used to
+uniquely identify any device, as no two picos have the same serial.
+
+| Field | Access | Description |
+|---|---|---|
+| `MFG` | Read-write | Manufacturer |
+| `NAME` | Read-write | Name |
+| `VER` | Read-write | Version |
+| `DATE` | Read-write | Date |
+| `PART` | Read-write | Part number |
+| `MFGSERIAL` | Read-write | Manufacturer's custom serial number |
+| `USER1` | Read-write | General-purpose field 1 |
+| `USER2` | Read-write | General-purpose field 2 |
+| `USER3` | Read-write | General-purpose field 3 |
+| `USER4` | Read-write | General-purpose field 4 |
+| `SERIAL` | Read-only | Pico's unique 64-bit serial number |
+
+Note that each of the above fields has a maximum length of 63. Each field is 64
+bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
+
+## Commands
+
+Communicating with the pico over serial is very simple. Each command must be
+terminated with a carriage return (`\r`). If a line feed (`\n`) is sent
+afterwards, it will be ignored.
+
+To set a field, send the field name, an equals sign, and the field's value. For
+example, to set the device's manufacturer field:
+
+```
+MFG=Bloomy Controls\r
+```
+
+To query a value, send the name of the field followed by a question mark. The
+pico will respond with the value delimited by a line feed (`\n`). For example,
+to query the manufacturer:
+
+```
+MFG?\r
+```
+
+There is one additional command: `CLEAR`. Send the `CLEAR` command to clear all
+fields.
+
+## Build Requirements
 
 You'll need Ubuntu or Debian to build this (WSL works just fine). Before
 attempting to build this project, install required packages using the following
