@@ -54,6 +54,7 @@ char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 
 void store_devinfo(const struct device_info* info) {
   if (!gpio_get(WRLOCK_IN)) {
+    // TODO: do we even need to erase here? This might be redundant.
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
     restore_interrupts(ints);
