@@ -1,9 +1,9 @@
 # Raspberry Pi Pico-Based System Identification
 
-This project uses a Raspberry Pi Pico to identify a system and store various
-information about the system, settable and retrievable over UART or USB.
-Additionally, writing can be disabled by jumping GPIO pins 14 and 15 together
-(pins 19 and 20 on the board).
+This project uses a Raspberry Pi Pico to identify and store various information
+about a system/fixture, settable and retrievable over UART or USB. Additionally,
+writing can be disabled by jumping GPIO pins 14 and 15 together (pins 19 and 20
+on the board).
 
 ## Information Fields
 
