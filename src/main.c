@@ -93,14 +93,11 @@ void validate_devinfo() {
   // We can be smart about this: any set field is guaranteed not to contain any
   // FF bytes, as strncpy will have zero-filled it. Any field containing an
   // invalid byte is therefore invalid.
-#define VAL_FIELD(field, n)                     \
-  do {                                          \
-    for (size_t i = 0; i < (n); ++i) {          \
-      if (devinfo.field[i] == 0xFF) {           \
-        memset(&(devinfo.field[0]), '\0', (n)); \
-        break;                                  \
-      }                                         \
-    }                                           \
+#define VAL_FIELD(field, n)                         \
+  do {                                              \
+    if (memchr(devinfo.field, 0xFF, (n)) != NULL) { \
+      memset(devinfo.field, '\0', (n));             \
+    }                                               \
   } while (0)
 
   VAL_FIELD(mfg, 64);
