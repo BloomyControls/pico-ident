@@ -1,3 +1,8 @@
+/*
+ * @file main.c
+ * @author Will Eccles
+ */
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +42,9 @@ struct device_info {
   char user3[64];
   char user4[64];
 
+  // This checksum field is calculated by summing up all of the previous bytes
+  // in this structure. It's crude, but should be good enough for such a basic
+  // device.
   uint8_t checksum;
 };
 
@@ -54,6 +62,18 @@ const struct device_info* flash_devinfo =
 // Board ID (this is set only once and stored here).
 char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 
+/**
+ * @brief Commit a device info structure to flash.
+ *
+ * This function will erase the sector containing the data and then copy the
+ * device info data into the cleared space. Note that if the WRLOCK_IN pin is
+ * asserted, this function is a no-op.
+ *
+ * @todo It may not be necessary to erase at all--it is probably enough to
+ * simply write over the existing data.
+ *
+ * @param[in] info a pointer to a device info struct to store
+ */
 void store_devinfo(const struct device_info* info) {
   if (!gpio_get(WRLOCK_IN)) {
     // TODO: do we even need to erase here? This might be redundant.
@@ -72,7 +92,13 @@ void store_devinfo(const struct device_info* info) {
   }
 }
 
-// Compute 8-bit checksum of a device info structure.
+/**
+ * @brief Compute the 8-bit checksum of a device info structure.
+ *
+ * @param[in] info the structure to use
+ *
+ * @return The 8-bit checksum of the structure.
+ */
 uint8_t compute_checksum(const struct device_info* info) {
   if (info != NULL) {
     uint8_t sum = 0;
@@ -83,10 +109,16 @@ uint8_t compute_checksum(const struct device_info* info) {
   }
 }
 
-// On startup, it's possible for the flash to be filled with 0xFF (this happens
-// when the flash is erased). Obviously this doesn't work well when trying to
-// read null-terminated strings from it, so we can check each field of the
-// device info stored in flash and clear it if it's full of Fs.
+/**
+ * @brief Validate the device info in flash and update it if necessary to clear
+ * any invalid data. This function is to be run once at boot.
+ *
+ * On startup with a new pico, it's entirely possible for the flash to be in its
+ * erased state (filled with FFs). This, of course, does not equate to
+ * a zero-length string. This function checks the device info stored in flash to
+ * make sure that it doesn't contain any FFs. If any field does, it will be
+ * zeroed out. This case should only arise on a fresh flash.
+ */
 void validate_devinfo() {
   struct device_info devinfo = *flash_devinfo;
 
@@ -117,7 +149,15 @@ void validate_devinfo() {
   }
 }
 
-// handle a null-terminated message
+/**
+ * @brief Handle and respond to serial messages.
+ *
+ * The input string may be modified to add a null terminator to trim a value to
+ * length, so the caller should not rely on the string containing no embedded
+ * nulls.
+ *
+ * @param[in,out] msg a null-terminated string containing the message to handle
+ */
 void handle_msg(char* msg) {
   if (msg == NULL) return;
 
@@ -188,6 +228,7 @@ int main(void) {
   gpio_set_dir(WRLOCK_IN, GPIO_IN);
   gpio_pull_down(WRLOCK_IN);
 
+  // Make sure the data in flash is valid
   validate_devinfo();
 
   // Get the board ID (we only need to do this once)
@@ -200,6 +241,8 @@ int main(void) {
     c = getchar_timeout_us(10);
     if (c == PICO_ERROR_TIMEOUT) continue;
 
+    // If it's a return character, handle the message. If not, add it to the
+    // buffer so long as it's valid.
     if (c == '\r') {
       rdbuf[idx] = '\0';
       idx = 0;
