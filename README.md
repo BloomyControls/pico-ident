@@ -33,7 +33,8 @@ bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
 
 Communicating with the pico over serial is very simple. Each command must be
 terminated with a carriage return (`\r`). If a line feed (`\n`) is sent
-afterwards, it will be ignored.
+afterwards, it will be ignored. Use 115200 baud, no flow control, 8 bits per
+byte, 1 stop bit.
 
 To set a field, send the field name, an equals sign, and the field's value. For
 example, to set the device's manufacturer field:
@@ -43,7 +44,7 @@ MFG=Bloomy Controls\r
 ```
 
 To query a value, send the name of the field followed by a question mark. The
-pico will respond with the value delimited by a line feed (`\n`). For example,
+pico will respond with the value delimited by a CRLF (`\r\n`). For example,
 to query the manufacturer:
 
 ```
