@@ -36,6 +36,8 @@ struct device_info {
   char user2[64];
   char user3[64];
   char user4[64];
+
+  uint8_t checksum;
 };
 
 // Size of the device info structure + additional space to make it a multiple of
@@ -70,6 +72,17 @@ void store_devinfo(const struct device_info* info) {
   }
 }
 
+// Compute 8-bit checksum of a device info structure.
+uint8_t compute_checksum(const struct device_info* info) {
+  if (info != NULL) {
+    uint8_t sum = 0;
+    const uint8_t* bytes = (const uint8_t*)info;
+    for (size_t i = 0; i < (sizeof(info) - 1); ++i) {
+      sum += bytes[i];
+    }
+  }
+}
+
 // On startup, it's possible for the flash to be filled with 0xFF (this happens
 // when the flash is erased). Obviously this doesn't work well when trying to
 // read null-terminated strings from it, so we can check each field of the
@@ -77,18 +90,32 @@ void store_devinfo(const struct device_info* info) {
 void validate_devinfo() {
   struct device_info devinfo = *flash_devinfo;
 
-  if (devinfo.mfg[0] == 0xFF) devinfo.mfg[0] = '\0';
-  if (devinfo.name[0] == 0xFF) devinfo.name[0] = '\0';
-  if (devinfo.ver[0] == 0xFF) devinfo.ver[0] = '\0';
-  if (devinfo.date[0] == 0xFF) devinfo.date[0] = '\0';
-  if (devinfo.part[0] == 0xFF) devinfo.part[0] = '\0';
-  if (devinfo.mfgserial[0] == 0xFF) devinfo.mfgserial[0] = '\0';
-  if (devinfo.user1[0] == 0xFF) devinfo.user1[0] = '\0';
-  if (devinfo.user2[0] == 0xFF) devinfo.user2[0] = '\0';
-  if (devinfo.user3[0] == 0xFF) devinfo.user3[0] = '\0';
-  if (devinfo.user4[0] == 0xFF) devinfo.user4[0] = '\0';
+  // We can be smart about this: any set field is guaranteed not to contain any
+  // FF bytes, as strncpy will have zero-filled it. Any field containing an
+  // invalid byte is therefore invalid.
+#define VAL_FIELD(field, n)                     \
+  do {                                          \
+    for (size_t i = 0; i < (n); ++i) {          \
+      if (devinfo.field[i] == 0xFF) {           \
+        memset(&(devinfo.field[0]), '\0', (n)); \
+        break;                                  \
+      }                                         \
+    }                                           \
+  } while (0)
+
+  VAL_FIELD(mfg, 64);
+  VAL_FIELD(name, 64);
+  VAL_FIELD(ver, 64);
+  VAL_FIELD(date, 64);
+  VAL_FIELD(part, 64);
+  VAL_FIELD(mfgserial, 64);
+  VAL_FIELD(user1, 64);
+  VAL_FIELD(user2, 64);
+  VAL_FIELD(user3, 64);
+  VAL_FIELD(user4, 64);
 
   if (memcmp(&devinfo, flash_devinfo, sizeof(devinfo)) != 0) {
+    devinfo.checksum = compute_checksum(&devinfo);
     store_devinfo(&devinfo);
   }
 }
@@ -99,91 +126,47 @@ void handle_msg(char* msg) {
 
   static struct device_info wrinfo;
 
-  if (strncmp(msg, "MFG=", 4) == 0) {
-    msg += 4;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.mfg, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "MFG?", 4) == 0) {
-    printf("%s\n", flash_devinfo->mfg);
-  } else if (strncmp(msg, "NAME=", 5) == 0) {
-    msg += 5;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.name, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "NAME?", 5) == 0) {
-    printf("%s\n", flash_devinfo->name);
-  } else if (strncmp(msg, "VER=", 4) == 0) {
-    msg += 4;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.ver, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "VER?", 4) == 0) {
-    printf("%s\n", flash_devinfo->ver);
-  } else if (strncmp(msg, "DATE=", 5) == 0) {
-    msg += 5;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.date, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "DATE?", 5) == 0) {
-    printf("%s\n", flash_devinfo->date);
-  } else if (strncmp(msg, "PART=", 5) == 0) {
-    msg += 5;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.part, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "PART?", 5) == 0) {
-    printf("%s\n", flash_devinfo->part);
-  } else if (strncmp(msg, "MFGSERIAL=", 10) == 0) {
-    msg += 10;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.mfgserial, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "MFGSERIAL?", 10) == 0) {
-    printf("%s\n", flash_devinfo->mfgserial);
-  } else if (strncmp(msg, "SERIAL?", 7) == 0) {
+  // This macro is used to define set/get commands for specific fields. This is
+  // just to avoid the massive block of ugly code we had here before, at the
+  // expense of a tiny bit of maintainability.
+  // GCC will optimize out the strlens here (in fact when confirming this I was
+  // unable to make it *not* optimize them out).
+#define RW_FIELD(fname, field, len)                                 \
+  do {                                                              \
+    if (strncmp(msg, (fname "="), strlen(fname "=")) == 0) {        \
+      msg += strlen(fname "=");                                     \
+      msg[strnlen(msg, (len)-1)] = '\0';                            \
+      wrinfo = *flash_devinfo;                                      \
+      strncpy(wrinfo.field, msg, (len));                            \
+      wrinfo.checksum = compute_checksum(&wrinfo);                  \
+      store_devinfo(&wrinfo);                                       \
+      return;                                                       \
+    } else if (strncmp(msg, (fname "?"), strlen(fname "?")) == 0) { \
+      printf("%s\n", flash_devinfo->field);                         \
+      return;                                                       \
+    }                                                               \
+  } while (0)
+
+  RW_FIELD("MFG", mfg, 64);
+  RW_FIELD("NAME", name, 64);
+  RW_FIELD("VER", ver, 64);
+  RW_FIELD("DATE", date, 64);
+  RW_FIELD("PART", part, 64);
+  RW_FIELD("MFGSERIAL", mfgserial, 64);
+  RW_FIELD("USER1", user1, 64);
+  RW_FIELD("USER2", user2, 64);
+  RW_FIELD("USER3", user3, 64);
+  RW_FIELD("USER4", user4, 64);
+
+  if (strncmp(msg, "SERIAL?", 7) == 0) {
     printf("%s\n", board_id);
-  } else if (strncmp(msg, "USER1=", 6) == 0) {
-    msg += 6;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.user1, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "USER1?", 6) == 0) {
-    printf("%s\n", flash_devinfo->user1);
-  } else if (strncmp(msg, "USER2=", 6) == 0) {
-    msg += 6;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.user2, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "USER2?", 6) == 0) {
-    printf("%s\n", flash_devinfo->user2);
-  } else if (strncmp(msg, "USER3=", 6) == 0) {
-    msg += 6;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.user3, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "USER3?", 6) == 0) {
-    printf("%s\n", flash_devinfo->user3);
-  } else if (strncmp(msg, "USER4=", 6) == 0) {
-    msg += 6;
-    msg[strnlen(msg, 63)] = '\0';
-    wrinfo = *flash_devinfo;
-    strncpy(wrinfo.user4, msg, 64);
-    store_devinfo(&wrinfo);
-  } else if (strncmp(msg, "USER4?", 6) == 0) {
-    printf("%s\n", flash_devinfo->user4);
-  } else if (strncmp(msg, "CLEAR", 5) == 0) {
+    return;
+  }
+
+  if (strncmp(msg, "CLEAR", 5) == 0) {
     memset(&wrinfo, 0, sizeof(wrinfo));
     store_devinfo(&wrinfo);
+    return;
   }
 }
 
