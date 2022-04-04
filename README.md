@@ -12,6 +12,13 @@ read the pico's unique 64-bit identifier as a hex string, but of course this is
 read-only. The idea is that the pico's serial number can always be used to
 uniquely identify any device, as no two picos have the same serial.
 
+It's worth noting that each sector (4096 bytes) of flash has a guaranteed
+minimum of 100,000 program-erase cycles according to the manufacturer. Each
+write to one of these fields will incur one erase and one program. This
+effectively limits us to 100,000 writes to any of these fields. Of course, the
+intended use of this device is to be set once and then write-locked for the rest
+of its lifespan, so that's likely not a huge concern here.
+
 | Field | Access | Description |
 |---|---|---|
 | `MFG` | Read-write | Manufacturer |
@@ -51,8 +58,12 @@ to query the manufacturer:
 MFG?\r
 ```
 
-There is one additional command: `CLEAR`. Send the `CLEAR` command to clear all
-fields.
+There are two additional commands:
+
+| Command | Description |
+|---|---|
+| `CLEAR` | Clear all writable fields |
+| `CHECK?` | Check that the data stored in flash matches the stored checksum, then return either `OK` or `ERR` |
 
 ## Build Requirements
 

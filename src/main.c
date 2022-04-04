@@ -168,6 +168,16 @@ void handle_msg(char* msg) {
     store_devinfo(&wrinfo);
     return;
   }
+
+  if (strncmp(msg, "CHECK?", 6) == 0) {
+    uint8_t sum = compute_checksum(flash_devinfo);
+    if (sum == flash_devinfo->checksum) {
+      printf("OK\n");
+    } else {
+      printf("ERR\n");
+    }
+    return;
+  }
 }
 
 int main(void) {
