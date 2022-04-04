@@ -22,6 +22,9 @@
 /*
  * Offset 512K from the start of the flash.
  * Must be aligned to a 4096-byte sector.
+ *
+ * Note that this could cause issues if this program was larger than 512K, but
+ * since this program is only ~30K (last I checked), it shouldn't be an issue.
  */
 #define FLASH_TARGET_OFFSET (512 * 1024)
 

@@ -8,9 +8,9 @@ on the board).
 ## Information Fields
 
 There are 10 R/W information fields stored on the device. It's also possible to
-read the pico's unique 64-bit identifier as a hex string, but of course this is
-read-only. The idea is that the pico's serial number can always be used to
-uniquely identify any device, as no two picos have the same serial.
+read the Pico's unique 64-bit identifier as a hex string, but of course this is
+read-only. The idea is that the Pico's serial number can always be used to
+uniquely identify any device, as no two Picos have the same serial.
 
 It's worth noting that each sector (4096 bytes) of flash has a guaranteed
 minimum of 100,000 program-erase cycles according to the manufacturer. Each
@@ -38,7 +38,7 @@ bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
 
 ## Commands
 
-Communicating with the pico over serial is very simple. Each command must be
+Communicating with the Pico over serial is very simple. Each command must be
 terminated with a carriage return (`\r`). If a line feed (`\n`) is sent
 afterwards, it will be ignored. Use 115200 baud, no flow control, 8 bits per
 byte, 1 stop bit.
@@ -51,7 +51,7 @@ MFG=Bloomy Controls\r
 ```
 
 To query a value, send the name of the field followed by a question mark. The
-pico will respond with the value delimited by a CRLF (`\r\n`). For example,
+Pico will respond with the value delimited by a CRLF (`\r\n`). For example,
 to query the manufacturer:
 
 ```
@@ -96,11 +96,11 @@ cmake --build build
 ```
 
 This will generate all the outputs in the build directory. The UF2 file (used to
-flash the pico) will be named `pico-ident.uf2`.
+flash the Pico) will be named `pico-ident.uf2`.
 
 ## Installing
 
-To install the firmware onto the pico, hold down the BOOTSEL button on the pico
+To install the firmware onto the pico, hold down the BOOTSEL button on the Pico
 while you are plugging in its USB cable. It should show up as a storage device
 in your file explorer. Simply drag and drop the UF2 file to it and it should
 unmount automatically. It's now flashed and ready to use.
