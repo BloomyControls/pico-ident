@@ -1,6 +1,11 @@
 /*
- * @file main.c
- * @author Will Eccles
+ * Raspberry Pi Pico System Identification Unit (pico-ident)
+ *
+ * Copyright (c) 2022, Bloomy Controls
+ * All rights reserved.
+ *
+ * This software is distributed under the BSD 3-Clause License. See the LICENSE
+ * file for the full license terms.
  */
 
 #include <ctype.h>
