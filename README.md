@@ -5,6 +5,9 @@ about a system/fixture, settable and retrievable over UART or USB. Additionally,
 writing can be disabled by jumping GPIO pins 14 and 15 together (pins 19 and 20
 on the board).
 
+**Pre-built UF2 files ready to flash onto the Pico for both USB and UART are
+available [here](https://github.com/BloomyControls/pico-ident/releases).**
+
 ## Information Fields
 
 There are 10 R/W information fields stored on the device. It's also possible to
