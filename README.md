@@ -86,7 +86,7 @@ cmake -B build
 ```
 
 This step may take quite some time, as it will download the Pi Pico SDK. If you
-wish to use USB for serial communications instead of UART, add `-DUSB_SERIAL=1`
+wish to use USB for serial communications instead of UART, add `-DUSB_SERIAL=ON`
 to the above command.
 
 After the configuration step is done, you can build the project like so:

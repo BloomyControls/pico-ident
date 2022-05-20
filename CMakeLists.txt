@@ -20,7 +20,9 @@ target_link_libraries("${PROJECT_NAME}"
   hardware_flash
   hardware_gpio)
 
-# add -DUSB_SERIAL=1 when configuring to use USB (9600 baud) instead of UART
+option(USB_SERIAL "Use USB serial instead of UART" OFF)
+
+# add -DUSB_SERIAL=ON when configuring to use USB (9600 baud) instead of UART
 if(USB_SERIAL)
   message(STATUS "Using USB serial")
   # enable USB output, disable UART
