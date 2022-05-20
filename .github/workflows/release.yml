@@ -26,7 +26,7 @@ jobs:
     - name: Build UART variant
       run: |
         cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-        cp ${{github.workspace}}/build/pico-ident.hex ${{github.workspace}}/pico-ident-uart.hex
+        cp ${{github.workspace}}/build/pico-ident.uf2 ${{github.workspace}}/pico-ident-uart.uf2
 
     - name: Configure USB build
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSB_SERIAL=ON
@@ -34,7 +34,7 @@ jobs:
     - name: Build USB variant
       run: |
         cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-        cp ${{github.workspace}}/build/pico-ident.hex ${{github.workspace}}/pico-ident-usb.hex
+        cp ${{github.workspace}}/build/pico-ident.uf2 ${{github.workspace}}/pico-ident-usb.uf2
 
     - name: Create release
       uses: ncipollo/release-action@v1.10.0
@@ -42,7 +42,7 @@ jobs:
       with:
         draft: false
         prerelease: false
-        artifacts: "${{github.workspace}}/pico-ident-*.hex"
+        artifacts: "${{github.workspace}}/pico-ident-*.uf2"
         artifactErrorsFailBuild: true
         generateReleaseNotes: true
         token: ${{ github.token }}
