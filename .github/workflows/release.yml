@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential python3 git
+
+    - name: Configure UART build
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSB_SERIAL=OFF
+
+    - name: Build UART variant
+      run: |
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+        cp ${{github.workspace}}/build/pico-ident.hex ${{github.workspace}}/pico-ident-uart.hex
+
+    - name: Configure USB build
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSB_SERIAL=ON
+
+    - name: Build USB variant
+      run: |
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+        cp ${{github.workspace}}/build/pico-ident.hex ${{github.workspace}}/pico-ident-usb.hex
+
+    - name: Create release
+      uses: ncipollo/release-action@v1.10.0
+      id: create_release
+      with:
+        draft: false
+        prerelease: false
+        artifacts: "${{github.workspace}}/pico-ident-*.hex"
+        artifactErrorsFailBuild: true
+        generateReleaseNotes: true
+        token: ${{ github.token }}
