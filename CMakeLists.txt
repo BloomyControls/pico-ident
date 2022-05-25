@@ -6,9 +6,7 @@ set(PICO_SDK_FETCH_FROM_GIT ON)
 
 include(pico_sdk_import.cmake)
 
-set(PROJECT_NAME "pico-ident")
-
-project("${PROJECT_NAME}")
+project("pico-ident" VERSION "1.0.0")
 
 pico_sdk_init()
 
@@ -34,5 +32,6 @@ endif()
 
 pico_set_program_url("${PROJECT_NAME}"
   "https://github.com/BloomyControls/pico-ident")
+pico_set_program_version("${PROJECT_NAME}" "${PROJECT_VERSION}")
 
 pico_add_extra_outputs("${PROJECT_NAME}" unique_board_id)
