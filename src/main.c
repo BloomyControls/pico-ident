@@ -15,6 +15,7 @@
 #include "hardware/flash.h"
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
+#include "pico/binary_info.h"
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
 
@@ -235,6 +236,10 @@ int main(void) {
   gpio_init(WRLOCK_IN);
   gpio_set_dir(WRLOCK_IN, GPIO_IN);
   gpio_pull_down(WRLOCK_IN);
+
+  // Make write lock pins available to picotool.
+  bi_decl(bi_2pins_with_names(WRLOCK_IN, "Write lock in", WRLOCK_OUT,
+                              "Write lock out"));
 
   // Make sure the data in flash is valid
   validate_devinfo();

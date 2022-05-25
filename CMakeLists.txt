@@ -32,4 +32,7 @@ else()
   message(STATUS "Using UART")
 endif()
 
+pico_set_program_url("${PROJECT_NAME}"
+  "https://github.com/BloomyControls/pico-ident")
+
 pico_add_extra_outputs("${PROJECT_NAME}" unique_board_id)
