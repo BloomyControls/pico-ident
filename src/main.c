@@ -128,7 +128,7 @@ uint8_t compute_checksum(const struct device_info* info) {
  * make sure that it doesn't contain any FFs. If any field does, it will be
  * zeroed out. This case should only arise on a fresh flash.
  */
-void validate_devinfo() {
+void validate_devinfo(void) {
   struct device_info devinfo = *flash_devinfo;
 
   // We can be smart about this: any set field is guaranteed not to contain any
