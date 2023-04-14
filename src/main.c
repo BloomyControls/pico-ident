@@ -112,10 +112,15 @@ uint8_t compute_checksum(const struct device_info* info) {
   if (info != NULL) {
     uint8_t sum = 0;
     const uint8_t* bytes = (const uint8_t*)info;
-    for (size_t i = 0; i < (sizeof(info) - 1); ++i) {
+
+    for (size_t i = 0; i < (sizeof(*info) - 1); ++i) {
       sum += bytes[i];
     }
+
+    return sum;
   }
+
+  return 0;
 }
 
 /**
