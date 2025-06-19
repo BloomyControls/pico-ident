@@ -3,10 +3,11 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(PICO_SDK_FETCH_FROM_GIT ON)
+set(PICO_SDK_FETCH_FROM_GIT_TAG 2.1.1)
 
 include(pico_sdk_import.cmake)
 
-project("pico-ident" VERSION "1.2.0")
+project("pico-ident" VERSION "1.3.0")
 
 pico_sdk_init()
 
