@@ -8,10 +8,9 @@
  * file for the full license terms.
  */
 
-#include <stdio.h>
-
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstring>
 
 #include "AT24CM02.h"
