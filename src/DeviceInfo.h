@@ -38,10 +38,10 @@ struct DeviceInfoString {
     return sv;
   }
 
-  [[nodiscard]] uint8_t Sum() const noexcept {
-    uint8_t sum{};
+  [[nodiscard]] std::uint8_t Sum() const noexcept {
+    std::uint8_t sum{};
     for (char c : data) {
-      sum += static_cast<uint8_t>(c);
+      sum += static_cast<std::uint8_t>(c);
     }
     return sum;
   }
@@ -67,7 +67,7 @@ struct DeviceInfoBlock {
   // This checksum field is calculated by summing up all of the previous bytes
   // in this structure. It's crude, but should be good enough for such a basic
   // device.
-  uint8_t checksum;
+  std::uint8_t checksum;
 
   // If any field was not valid and was updated, returns false.
   [[nodiscard]] bool Validate() noexcept {
@@ -86,8 +86,8 @@ struct DeviceInfoBlock {
   }
 
   // Computes (but does not update!) the checksum.
-  [[nodiscard]] uint8_t ComputeChecksum() const noexcept {
-    uint8_t sum{};
+  [[nodiscard]] std::uint8_t ComputeChecksum() const noexcept {
+    std::uint8_t sum{};
     sum += mfg.Sum();
     sum += name.Sum();
     sum += ver.Sum();

@@ -2,13 +2,13 @@
 
 #include <algorithm>
 
-constexpr static uint32_t kAddrMask{(1U << 18U) - 1U};
+constexpr static std::uint32_t kAddrMask{(1U << 18U) - 1U};
 
-AT24CM02::AT24CM02(i2c_inst_t* i2c, bool addr_pin) noexcept
+AT24CM02::AT24CM02(::i2c_inst_t* i2c, bool addr_pin) noexcept
     : i2c_{i2c}, addr_pin_(addr_pin ? 1U : 0U) {}
 
-bool AT24CM02::Write(uint32_t addr, const uint8_t* buf,
-                     size_t len) const noexcept {
+bool AT24CM02::Write(std::uint32_t addr, const std::uint8_t* buf,
+                     std::size_t len) const noexcept {
   if (!i2c_ || !buf || len == 0 || (addr & ~kAddrMask)) {
     return false;
   }
@@ -17,15 +17,16 @@ bool AT24CM02::Write(uint32_t addr, const uint8_t* buf,
     return false;
   }
 
-  size_t page_remain = kBytesPerPage - (addr % kBytesPerPage);
+  std::size_t page_remain = kBytesPerPage - (addr % kBytesPerPage);
 
   if (len < page_remain) {
     page_remain = len;
   }
 
   while (len > 0) {
-    const uint8_t i2c_addr = (0xA0 | (addr_pin_ << 3U) | (addr >> 15U)) >> 1U;
-    uint8_t addr_bytes[2];
+    const std::uint8_t i2c_addr =
+        (0xA0 | (addr_pin_ << 3U) | (addr >> 15U)) >> 1U;
+    std::uint8_t addr_bytes[2];
 
     addr_bytes[0] = (addr & 0x0FF00) >> 8;
     addr_bytes[1] = addr & 0x000FF;
@@ -54,7 +55,8 @@ bool AT24CM02::Write(uint32_t addr, const uint8_t* buf,
   return true;
 }
 
-bool AT24CM02::Read(uint32_t addr, uint8_t* buf, size_t len) const noexcept {
+bool AT24CM02::Read(std::uint32_t addr, std::uint8_t* buf,
+                    std::size_t len) const noexcept {
   if (!i2c_ || !buf || len == 0 || (addr & ~kAddrMask)) {
     return false;
   }
@@ -63,8 +65,9 @@ bool AT24CM02::Read(uint32_t addr, uint8_t* buf, size_t len) const noexcept {
     return false;
   }
 
-  const uint8_t i2c_addr = (0xA0 | (addr_pin_ << 3U) | (addr >> 15U)) >> 1U;
-  uint8_t addr_bytes[2];
+  const std::uint8_t i2c_addr =
+      (0xA0 | (addr_pin_ << 3U) | (addr >> 15U)) >> 1U;
+  std::uint8_t addr_bytes[2];
 
   addr_bytes[0] = (addr & 0x0FF00) >> 8;
   addr_bytes[1] = addr & 0x000FF;

@@ -35,8 +35,8 @@
 
 #define I2C_INST i2c0
 
-static constexpr uint32_t kDeviceInfoAddr{0x0};
-static constexpr uint32_t kEdgeCountAddr{0x800};
+static constexpr std::uint32_t kDeviceInfoAddr{0x0};
+static constexpr std::uint32_t kEdgeCountAddr{0x800};
 
 // Board ID (this is set only once and stored here).
 static char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
@@ -47,8 +47,8 @@ static DeviceInfoBlock data;
 // EEPROM peripheral.
 static AT24CM02 eeprom{I2C_INST, true};
 
-static volatile uint32_t edgecount;
-static uint32_t last_edgecount;
+static volatile std::uint32_t edgecount;
+static std::uint32_t last_edgecount;
 static volatile ::absolute_time_t last_edge_time;
 
 [[noreturn]] static void Panic() noexcept {
@@ -59,14 +59,15 @@ static volatile ::absolute_time_t last_edge_time;
 }
 
 static void StoreDeviceInfo() noexcept {
-  if (!eeprom.Write(kDeviceInfoAddr, reinterpret_cast<const uint8_t*>(&data),
+  if (!eeprom.Write(kDeviceInfoAddr,
+                    reinterpret_cast<const std::uint8_t*>(&data),
                     sizeof(data))) {
     Panic();
   }
 }
 
 static void LoadDeviceInfo() noexcept {
-  if (!eeprom.Read(kDeviceInfoAddr, reinterpret_cast<uint8_t*>(&data),
+  if (!eeprom.Read(kDeviceInfoAddr, reinterpret_cast<std::uint8_t*>(&data),
                    sizeof(data))) {
     Panic();
   }
@@ -81,16 +82,16 @@ static void ValidateDeviceInfo() noexcept {
   }
 }
 
-static void StoreEdgeCount(uint32_t ec) noexcept {
-  if (!eeprom.Write(kEdgeCountAddr, reinterpret_cast<const uint8_t*>(&ec),
+static void StoreEdgeCount(std::uint32_t ec) noexcept {
+  if (!eeprom.Write(kEdgeCountAddr, reinterpret_cast<const std::uint8_t*>(&ec),
                     sizeof(ec))) {
     Panic();
   }
 }
 
 static void LoadEdgeCount() noexcept {
-  uint32_t ec;
-  if (!eeprom.Read(kEdgeCountAddr, reinterpret_cast<uint8_t*>(&ec),
+  std::uint32_t ec;
+  if (!eeprom.Read(kEdgeCountAddr, reinterpret_cast<std::uint8_t*>(&ec),
                    sizeof(ec))) {
     Panic();
   }
@@ -217,8 +218,7 @@ int main(void) {
 
   // Falling edges increase the edge count.
   ::gpio_set_irq_enabled_with_callback(
-      PIN_SWITCH, GPIO_IRQ_EDGE_FALL, true,
-      [](uint, uint32_t) {
+      PIN_SWITCH, GPIO_IRQ_EDGE_FALL, true, [](::uint, std::uint32_t) {
         const auto now = ::get_absolute_time();
         const auto diff = ::absolute_time_diff_us(last_edge_time, now);
         // 50ms debounce
@@ -229,7 +229,7 @@ int main(void) {
       });
 
   char rdbuf[512] = {0};
-  size_t idx = 0;
+  std::size_t idx = 0;
   int c;
   while (1) {
     c = ::getchar_timeout_us(10);
