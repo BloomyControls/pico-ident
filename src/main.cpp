@@ -31,6 +31,7 @@
 #define PIN_WRLOCK_IN (15)
 #define PIN_SDA (16)
 #define PIN_SCL (17)
+#define PIN_LED PICO_DEFAULT_LED_PIN
 
 #define I2C_INST i2c0
 
@@ -44,21 +45,31 @@ static char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 static DeviceInfoBlock data;
 
 // EEPROM peripheral.
-static AT24CM02 eeprom{I2C_INST, false};
+static AT24CM02 eeprom{I2C_INST, true};
 
 static volatile uint32_t edgecount;
 static uint32_t last_edgecount;
 static volatile ::absolute_time_t last_edge_time;
 
+[[noreturn]] static void Panic() noexcept {
+  while (1) {
+    ::gpio_xor_mask(1U << PIN_LED);
+    ::sleep_ms(250);
+  }
+}
+
 static void StoreDeviceInfo() noexcept {
-  // TODO: error handling
-  eeprom.Write(kDeviceInfoAddr, reinterpret_cast<const uint8_t*>(&data),
-               sizeof(data));
+  if (!eeprom.Write(kDeviceInfoAddr, reinterpret_cast<const uint8_t*>(&data),
+                    sizeof(data))) {
+    Panic();
+  }
 }
 
 static void LoadDeviceInfo() noexcept {
-  // TODO: error handling
-  eeprom.Read(kDeviceInfoAddr, reinterpret_cast<uint8_t*>(&data), sizeof(data));
+  if (!eeprom.Read(kDeviceInfoAddr, reinterpret_cast<uint8_t*>(&data),
+                   sizeof(data))) {
+    Panic();
+  }
 }
 
 // Validates data. If it was invalid, updates the data and writes it back to the
@@ -71,14 +82,18 @@ static void ValidateDeviceInfo() noexcept {
 }
 
 static void StoreEdgeCount(uint32_t ec) noexcept {
-  // TODO: error handling
-  eeprom.Write(kEdgeCountAddr, reinterpret_cast<const uint8_t*>(&ec),
-               sizeof(ec));
+  if (!eeprom.Write(kEdgeCountAddr, reinterpret_cast<const uint8_t*>(&ec),
+                    sizeof(ec))) {
+    Panic();
+  }
 }
 
 static void LoadEdgeCount() noexcept {
   uint32_t ec;
-  eeprom.Read(kEdgeCountAddr, reinterpret_cast<uint8_t*>(&ec), sizeof(ec));
+  if (!eeprom.Read(kEdgeCountAddr, reinterpret_cast<uint8_t*>(&ec),
+                   sizeof(ec))) {
+    Panic();
+  }
   edgecount = ec;
 }
 
@@ -152,6 +167,10 @@ static void HandleSerialMessage(std::string_view message) noexcept {
 
 int main(void) {
   ::stdio_init_all();
+
+  ::gpio_init(PIN_LED);
+  ::gpio_set_dir(PIN_LED, GPIO_OUT);
+  ::gpio_put(PIN_LED, 1);
 
   ::gpio_init(PIN_WRLOCK_OUT);
   ::gpio_set_dir(PIN_WRLOCK_OUT, GPIO_OUT);
