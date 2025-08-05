@@ -42,7 +42,7 @@ bool AT24CM02::Write(uint32_t addr, const uint8_t* buf,
 
     // this could be replaced with ACK polling if we hate waiting for the max
     // write time
-    sleep_ms(10);
+    ::sleep_ms(10);
 
     addr += page_remain;
     buf += page_remain;
