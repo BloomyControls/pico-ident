@@ -68,8 +68,7 @@ struct DeviceInfoBlock {
   // device.
   uint8_t checksum;
 
-  // If any field was not valid and was updated, returns false. Else, returns
-  // true. If any field is updated, the checksum is also updated to match.
+  // If any field was not valid and was updated, returns false.
   [[nodiscard]] bool Validate() noexcept {
     bool ok = true;
     ok &= mfg.Validate();
@@ -82,11 +81,6 @@ struct DeviceInfoBlock {
     ok &= user3.Validate();
     ok &= user2.Validate();
     ok &= user4.Validate();
-    const auto cs = ComputeChecksum();
-    if (cs != checksum) {
-      checksum = cs;
-      ok = false;
-    }
     return ok;
   }
 

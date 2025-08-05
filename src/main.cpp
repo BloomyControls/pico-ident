@@ -65,6 +65,7 @@ static void LoadDeviceInfo() noexcept {
 // EEPROM. Should only be called at startup.
 static void ValidateDeviceInfo() noexcept {
   if (!data.Validate()) {
+    data.checksum = data.ComputeChecksum();
     StoreDeviceInfo();
   }
 }
