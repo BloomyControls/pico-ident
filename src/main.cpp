@@ -198,7 +198,7 @@ int main(void) {
 
   // Falling edges increase the edge count.
   ::gpio_set_irq_enabled_with_callback(
-      PIN_SWITCH, 0, GPIO_IRQ_EDGE_FALL,
+      PIN_SWITCH, GPIO_IRQ_EDGE_FALL, true,
       [](uint, uint32_t) {
         const auto now = ::get_absolute_time();
         const auto diff = ::absolute_time_diff_us(last_edge_time, now);
