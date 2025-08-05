@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string_view>
+#include <type_traits>
 
 // This type and the following one must remain POD types to keep their
 // layouts as intended! No user defined CTORs, etc.
@@ -117,5 +118,9 @@ struct DeviceInfoBlock {
     return nullptr;
   }
 };
+
+static_assert(std::is_trivial_v<DeviceInfoBlock> &&
+              std::is_standard_layout_v<DeviceInfoBlock>,
+              "DeviceInfoBlock must be POD!");
 
 #endif  /* PICO_IDENT_SRC_DEVICEINFO_H */
