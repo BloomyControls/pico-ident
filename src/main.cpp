@@ -237,6 +237,7 @@ int main(void) {
       if (edgecount != last_edgecount) {
         StoreEdgeCount(last_edgecount = edgecount);
       }
+      continue;
     }
 
     // If it's a return character, handle the message. If not, add it to the
