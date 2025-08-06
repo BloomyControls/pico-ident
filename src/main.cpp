@@ -48,6 +48,11 @@ static_assert(MIN_PULSE_WIDTH_US >= 10ULL,
 static constexpr std::uint32_t kDeviceInfoAddr{0x0};
 static constexpr std::uint32_t kPulseCountAddr{0x800};
 
+// Number of 4-byte words used in the EEPROM for the pulse count. This is used
+// for wear leveling. Each word is rated for a million write cycles, so +1 here
+// adds a million to our upper count limit, essentially.
+static constexpr std::size_t kPulseCountWords{16};
+
 // Board ID (this is set only once and stored here).
 static char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
 
@@ -59,6 +64,7 @@ static AT24CM02 eeprom{I2C_INST, true};
 
 static volatile std::uint32_t pulsecount;
 static std::uint32_t last_pulsecount;
+static std::uint32_t next_pulsecount_idx;
 
 [[noreturn]] static void Panic() noexcept {
   while (1) {
@@ -91,20 +97,67 @@ static void ValidateDeviceInfo() noexcept {
   }
 }
 
+inline constexpr std::uint32_t GetPulseCountAddr(std::uint32_t idx) noexcept {
+  return kPulseCountAddr + idx * sizeof(std::uint32_t);
+}
+
 static void StorePulseCount(std::uint32_t pc) noexcept {
-  if (!eeprom.Write(kPulseCountAddr, reinterpret_cast<const std::uint8_t*>(&pc),
+  const auto addr = GetPulseCountAddr(next_pulsecount_idx);
+  next_pulsecount_idx = (next_pulsecount_idx + 1) % kPulseCountWords;
+  if (!eeprom.Write(addr, reinterpret_cast<const std::uint8_t*>(&pc),
                     sizeof(pc))) {
     Panic();
   }
 }
 
-static void LoadPulseCount() noexcept {
-  std::uint32_t pc;
-  if (!eeprom.Read(kPulseCountAddr, reinterpret_cast<std::uint8_t*>(&pc),
-                   sizeof(pc))) {
+static void ResetPulseCount() noexcept {
+  const std::uint32_t dummy[kPulseCountWords]{};
+  if (!eeprom.Write(kPulseCountAddr,
+                    reinterpret_cast<const std::uint8_t*>(dummy),
+                    sizeof(dummy))) {
     Panic();
   }
-  pulsecount = pc;
+  pulsecount = 0;
+  last_pulsecount = 0;
+  next_pulsecount_idx = 0;
+}
+
+static void LoadPulseCount() noexcept {
+  std::uint32_t pcs[kPulseCountWords];
+  if (!eeprom.Read(kPulseCountAddr, reinterpret_cast<std::uint8_t*>(pcs),
+                   sizeof(pcs))) {
+    Panic();
+  }
+
+  // Validate the pulse counts in the array and if any are all FFs, reset them
+  // to 0 (these are blank cells).
+  bool modified{};
+  for (std::uint32_t i{}; i < std::size(pcs); ++i) {
+    if (pcs[i] == 0xFFFFFFFF) {
+      pcs[i] = 0;
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    if (!eeprom.Write(kPulseCountAddr,
+                      reinterpret_cast<const std::uint8_t*>(pcs),
+                      sizeof(pcs))) {
+      Panic();
+    }
+  }
+
+  // Find the next index to write a pulse count to (i.e., the first one where
+  // the value is less than the previous one). Also, store the highest value, as
+  // that's the actual pulse count.
+  for (std::uint32_t i{}; i < kPulseCountWords; ++i) {
+    const auto next_idx = (i + 1) % kPulseCountWords;
+    if (pcs[next_idx] <= pcs[i]) {
+      next_pulsecount_idx = next_idx;
+      pulsecount = pcs[i];
+      break;
+    }
+  }
 }
 
 [[nodiscard]] static bool WriteLockEnabled() noexcept {
@@ -168,9 +221,7 @@ static void HandleSerialMessage(std::string_view message) noexcept {
         StoreDeviceInfo();
       }
     } else if (header == "RESETCOUNT"sv) {
-      StorePulseCount(0);
-      pulsecount = 0;
-      last_pulsecount = 0;
+      ResetPulseCount();
     }
   }
 }
@@ -212,12 +263,8 @@ int main(void) {
   LoadDeviceInfo();
   ValidateDeviceInfo();
 
+  // This also checks for fresh EEPROM (FFs)
   LoadPulseCount();
-  // check for blank EEPROM
-  if (pulsecount == 0xFFFFFFFF) {
-    pulsecount = 0;
-    StorePulseCount(0);
-  }
 
   // Get the board ID (we only need to do this once)
   ::pico_get_unique_board_id_string(board_id, sizeof(board_id));

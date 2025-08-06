@@ -19,10 +19,12 @@ read the Pico's unique 64-bit identifier as a hex string, but of course this is
 read-only. The idea is that the Pico's serial number can always be used to
 uniquely identify any device, as no two Picos have the same serial.
 
-The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word). In
-theory, this means we can count up to 1 million pulses reliably, as no wear
-leveling is implemented at the moment. This could be added in the future to
-trivially multiply the maximum count.
+The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word).
+Using a simple wear-leveling scheme using 16 words, the theoretical minimum
+number of pulses that can be counted without resetting is about 16 million. This
+is expected to be incredibly high for most applications, but by changing
+a constant, this number can be trivially increased for more demanding
+applications.
 
 | Field | Access | Description |
 |---|---|---|
