@@ -35,8 +35,18 @@
 
 #define I2C_INST i2c0
 
+// How long a low pulse must be to be counted.
+#ifdef CONFIG_MIN_PULSE_WIDTH_US
+#define MIN_PULSE_WIDTH_US (int64_t(CONFIG_MIN_PULSE_WIDTH_US))
+#else
+#define MIN_PULSE_WIDTH_US (100'000ULL)
+#endif  // CONFIG_MIN_PULSE_WIDTH_US
+
+static_assert(MIN_PULSE_WIDTH_US >= 10ULL,
+              "Minimum pulse width must be at least 10us!");
+
 static constexpr std::uint32_t kDeviceInfoAddr{0x0};
-static constexpr std::uint32_t kEdgeCountAddr{0x800};
+static constexpr std::uint32_t kPulseCountAddr{0x800};
 
 // Board ID (this is set only once and stored here).
 static char board_id[PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1];
@@ -47,9 +57,8 @@ static DeviceInfoBlock data;
 // EEPROM peripheral.
 static AT24CM02 eeprom{I2C_INST, true};
 
-static volatile std::uint32_t edgecount;
-static std::uint32_t last_edgecount;
-static volatile ::absolute_time_t last_edge_time;
+static volatile std::uint32_t pulsecount;
+static std::uint32_t last_pulsecount;
 
 [[noreturn]] static void Panic() noexcept {
   while (1) {
@@ -82,20 +91,20 @@ static void ValidateDeviceInfo() noexcept {
   }
 }
 
-static void StoreEdgeCount(std::uint32_t ec) noexcept {
-  if (!eeprom.Write(kEdgeCountAddr, reinterpret_cast<const std::uint8_t*>(&ec),
-                    sizeof(ec))) {
+static void StorePulseCount(std::uint32_t pc) noexcept {
+  if (!eeprom.Write(kPulseCountAddr, reinterpret_cast<const std::uint8_t*>(&pc),
+                    sizeof(pc))) {
     Panic();
   }
 }
 
-static void LoadEdgeCount() noexcept {
-  std::uint32_t ec;
-  if (!eeprom.Read(kEdgeCountAddr, reinterpret_cast<std::uint8_t*>(&ec),
-                   sizeof(ec))) {
+static void LoadPulseCount() noexcept {
+  std::uint32_t pc;
+  if (!eeprom.Read(kPulseCountAddr, reinterpret_cast<std::uint8_t*>(&pc),
+                   sizeof(pc))) {
     Panic();
   }
-  edgecount = ec;
+  pulsecount = pc;
 }
 
 [[nodiscard]] static bool WriteLockEnabled() noexcept {
@@ -147,8 +156,8 @@ static void HandleSerialMessage(std::string_view message) noexcept {
         } else {
           std::printf("ERR\n");
         }
-      } else if (header == "EDGECOUNT"sv) {
-        std::printf("%u\n", edgecount);
+      } else if (header == "PULSECOUNT"sv) {
+        std::printf("%u\n", pulsecount);
       }
     }
   } else {
@@ -159,9 +168,9 @@ static void HandleSerialMessage(std::string_view message) noexcept {
         StoreDeviceInfo();
       }
     } else if (header == "RESETCOUNT"sv) {
-      StoreEdgeCount(0);
-      edgecount = 0;
-      last_edgecount = 0;
+      StorePulseCount(0);
+      pulsecount = 0;
+      last_pulsecount = 0;
     }
   }
 }
@@ -203,28 +212,38 @@ int main(void) {
   LoadDeviceInfo();
   ValidateDeviceInfo();
 
-  LoadEdgeCount();
+  LoadPulseCount();
   // check for blank EEPROM
-  if (edgecount == 0xFFFFFFFF) {
-    edgecount = 0;
-    StoreEdgeCount(0);
+  if (pulsecount == 0xFFFFFFFF) {
+    pulsecount = 0;
+    StorePulseCount(0);
   }
 
   // Get the board ID (we only need to do this once)
   ::pico_get_unique_board_id_string(board_id, sizeof(board_id));
 
-  last_edgecount = edgecount;
-  last_edge_time = ::get_absolute_time();
+  last_pulsecount = pulsecount;
+  static volatile ::absolute_time_t falling_edge_time = ::get_absolute_time();
+  static volatile bool pulse_started = false;
 
-  // Falling edges increase the edge count.
+  // When we see a falling edge, store the time that happened. When we see
+  // a rising edge, see how long the pulse was, and if it was long enough,
+  // increment the edge count. Else, we wait for the next falling edge.
   ::gpio_set_irq_enabled_with_callback(
-      PIN_SWITCH, GPIO_IRQ_EDGE_FALL, true, [](::uint, std::uint32_t) {
+      PIN_SWITCH, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true,
+      [](::uint, std::uint32_t event_mask) {
         const auto now = ::get_absolute_time();
-        const auto diff = ::absolute_time_diff_us(last_edge_time, now);
-        // 50ms debounce
-        if (diff >= 50'000) {
-          last_edge_time = now;
-          edgecount = edgecount + 1;
+        if (!pulse_started && (event_mask & GPIO_IRQ_EDGE_FALL)) {
+          pulse_started = true;
+          falling_edge_time = now;
+        } else if (pulse_started && (event_mask & GPIO_IRQ_EDGE_RISE)) {
+          const auto diff = ::absolute_time_diff_us(falling_edge_time, now);
+          // Look for low pulses wide enough to be counted.
+          if (diff >= MIN_PULSE_WIDTH_US) {
+            // XXX: should this be set to false outside this condition?
+            pulse_started = false;
+            pulsecount = pulsecount + 1;
+          }
         }
       });
 
@@ -234,8 +253,8 @@ int main(void) {
   while (1) {
     c = ::getchar_timeout_us(10);
     if (c == PICO_ERROR_TIMEOUT) {
-      if (edgecount != last_edgecount) {
-        StoreEdgeCount(last_edgecount = edgecount);
+      if (pulsecount != last_pulsecount) {
+        StorePulseCount(last_pulsecount = pulsecount);
       }
       continue;
     }

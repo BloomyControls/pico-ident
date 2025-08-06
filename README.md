@@ -4,7 +4,9 @@ This project uses a Raspberry Pi Pico to identify and store various information
 about a system/fixture, settable and retrievable over UART or USB. Additionally,
 writing can be disabled by jumping GPIO pins 14 and 15 together (pins 19 and 20
 on the board), and GPIO 13 (pin 17 on the board) can be switched to GND and used
-as a falling edge counter, such as for a fixture lid switch.
+as a pulse counter, such as for a fixture lid switch. This pin is active low and
+counts any low pulse longer than a minimum time period (configurable by with a
+CMake variable).
 
 This project makes use of a Pi Pico and a MIKROE EEPROM 3 Click. The I2C lines
 for the EEPROM should be connected to GPIOs 16 (SDA) and 17 (SCL) (pins 21 and
@@ -17,7 +19,10 @@ read the Pico's unique 64-bit identifier as a hex string, but of course this is
 read-only. The idea is that the Pico's serial number can always be used to
 uniquely identify any device, as no two Picos have the same serial.
 
-The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word).
+The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word). In
+theory, this means we can count up to 1 million pulses reliably, as no wear
+leveling is implemented at the moment. This could be added in the future to
+trivially multiply the maximum count.
 
 | Field | Access | Description |
 |---|---|---|
@@ -32,7 +37,7 @@ The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word).
 | `USER3` | Read-write | General-purpose field 3 |
 | `USER4` | Read-write | General-purpose field 4 |
 | `SERIAL` | Read-only | Pico's unique 64-bit serial number |
-| `EDGECOUNT?` | Read-only | Falling edge count on GP13 (board pin 17) |
+| `PULSECOUNT?` | Read-only | Low pulse count on GP13 (board pin 17) |
 
 Note that each of the above fields has a maximum length of 63. Each field is 64
 bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
@@ -65,7 +70,7 @@ There are some additional commands:
 |---|---|
 | `CLEAR` | Clear all writable fields |
 | `CHECK?` | Check that the data stored in EEPROM matches the stored checksum, then return either `OK` or `ERR` |
-| `RESETCOUNT` | Reset the edge count to 0 |
+| `RESETCOUNT` | Reset the pulse count to 0 |
 
 ## Build Requirements
 
@@ -90,6 +95,10 @@ cmake -B build
 This step may take quite some time, as it will download the Pi Pico SDK. If you
 wish to use USB for serial communications instead of UART, add `-DUSB_SERIAL=ON`
 to the above command.
+
+The default minimum pulse width is 100ms. To override this time limit, pass
+`-DMIN_PULSE_WIDTH_US=500000` to get 500ms (you can use any whole number of
+microseconds greater than or equal to 10, however).
 
 After the configuration step is done, you can build the project like so:
 
