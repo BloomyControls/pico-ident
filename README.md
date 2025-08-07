@@ -12,11 +12,15 @@ This project makes use of a Pi Pico and a MIKROE EEPROM 3 Click. The I2C lines
 for the EEPROM should be connected to GPIOs 16 (SDA) and 17 (SCL) (pins 21 and
 22 on the board, respectively).
 
-> [!NOTE]
+**Pre-build UF2 binaries are available for USB or UART configurations
+[here][releases].**
+
+> [!IMPORTANT]
 > This is the new version with pulse counting using the AT24CM02 I2C EEPROM
 > chip. For the old version without pulse counting which uses only the Pico's
 > on-board flash, use [version 1.3.0][1.3.0].
 
+[releases]: https://github.com/BloomyControls/pico-ident/releases
 [1.3.0]: https://github.com/BloomyControls/pico-ident/releases/tag/v1.3.0
 
 ## Information Fields
