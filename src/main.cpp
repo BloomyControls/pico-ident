@@ -49,7 +49,9 @@ static_assert(MIN_PULSE_WIDTH_US >= 50'000ULL,
 static_assert(MIN_PULSE_WIDTH_US > (SWITCH_DEBOUNCE_TIME_US * 2),
               "Minimum pulse width insufficient for debounce time!");
 
+// Device info address in the EEPROM.
 static constexpr std::uint32_t kDeviceInfoAddr{0x0};
+// Pulse count address in the EEPROM.
 static constexpr std::uint32_t kPulseCountAddr{0x800};
 
 // Number of 4-byte words used in the EEPROM for the pulse count. This is used
@@ -66,10 +68,15 @@ static DeviceInfoBlock data;
 // EEPROM peripheral.
 static AT24CM02 eeprom{I2C_INST, true};
 
+// Running pulse count.
 static volatile std::uint32_t pulsecount;
+// Last pulse count used to detect updates.
 static std::uint32_t last_pulsecount;
+// Next index to write the pulse count to in the EEPROM (for wear leveling).
 static std::uint32_t next_pulsecount_idx;
 
+/// Flash the LED in an infinite loop. This function does not return. Use when
+/// all hope is lost.
 [[noreturn]] static void Panic() noexcept {
   while (1) {
     ::gpio_xor_mask(1U << PIN_LED);
@@ -77,6 +84,7 @@ static std::uint32_t next_pulsecount_idx;
   }
 }
 
+/// Write the device info block to the EEPROM.
 static void StoreDeviceInfo() noexcept {
   if (!eeprom.Write(kDeviceInfoAddr,
                     reinterpret_cast<const std::uint8_t*>(&data),
@@ -85,6 +93,7 @@ static void StoreDeviceInfo() noexcept {
   }
 }
 
+/// Read the device info block from the EEPROM.
 static void LoadDeviceInfo() noexcept {
   if (!eeprom.Read(kDeviceInfoAddr, reinterpret_cast<std::uint8_t*>(&data),
                    sizeof(data))) {
@@ -92,8 +101,8 @@ static void LoadDeviceInfo() noexcept {
   }
 }
 
-// Validates data. If it was invalid, updates the data and writes it back to the
-// EEPROM. Should only be called at startup.
+/// Validates data. If it was invalid, updates the data and writes it back to
+/// the EEPROM. Should only be called once at startup.
 static void ValidateDeviceInfo() noexcept {
   if (!data.Validate()) {
     data.checksum = data.ComputeChecksum();
@@ -101,10 +110,19 @@ static void ValidateDeviceInfo() noexcept {
   }
 }
 
+/**
+ * @brief Compute the memory address of the pulse count based on its index. Used
+ * for wear leveling.
+ *
+ * @param[in] idx the index of the pulse count
+ *
+ * @return The address of the pulse count at that index.
+ */
 inline constexpr std::uint32_t GetPulseCountAddr(std::uint32_t idx) noexcept {
   return kPulseCountAddr + idx * sizeof(std::uint32_t);
 }
 
+/// Store a new value for the pulse count to the EEPROM. Handles wear leveling.
 static void StorePulseCount(std::uint32_t pc) noexcept {
   const auto addr = GetPulseCountAddr(next_pulsecount_idx);
   next_pulsecount_idx = (next_pulsecount_idx + 1) % kPulseCountWords;
@@ -114,6 +132,7 @@ static void StorePulseCount(std::uint32_t pc) noexcept {
   }
 }
 
+/// Reset the pulse counter (both in memory and in the EEPROM).
 static void ResetPulseCount() noexcept {
   const std::uint32_t dummy[kPulseCountWords]{};
   if (!eeprom.Write(kPulseCountAddr,
@@ -126,6 +145,8 @@ static void ResetPulseCount() noexcept {
   next_pulsecount_idx = 0;
 }
 
+/// Load the pulse count from the EEPROM. If a blank EEPROM is detected, zeroes
+/// the data in the EEPROM.
 static void LoadPulseCount() noexcept {
   std::uint32_t pcs[kPulseCountWords];
   if (!eeprom.Read(kPulseCountAddr, reinterpret_cast<std::uint8_t*>(pcs),
@@ -164,10 +185,19 @@ static void LoadPulseCount() noexcept {
   }
 }
 
+/**
+ * @return Whether the write lock is enabled (two pins jumped together).
+ */
 [[nodiscard]] static bool WriteLockEnabled() noexcept {
   return ::gpio_get(PIN_WRLOCK_IN);
 }
 
+/**
+ * @brief Handles incoming serial messages.
+ *
+ * @param[in] message the message buffer to handle. Should not contain the
+ * message termination character (a carriage return).
+ */
 static void HandleSerialMessage(std::string_view message) noexcept {
   if (message.empty()) {
     return;
