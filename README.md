@@ -100,7 +100,7 @@ to the above command.
 
 The default minimum pulse width is 100ms. To override this time limit, pass
 `-DMIN_PULSE_WIDTH_US=500000` to get 500ms (you can use any whole number of
-microseconds greater than or equal to 10, however).
+microseconds greater than or equal to 50,000).
 
 After the configuration step is done, you can build the project like so:
 

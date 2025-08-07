@@ -42,8 +42,12 @@
 #define MIN_PULSE_WIDTH_US (100'000ULL)
 #endif  // CONFIG_MIN_PULSE_WIDTH_US
 
-static_assert(MIN_PULSE_WIDTH_US >= 10ULL,
-              "Minimum pulse width must be at least 10us!");
+#define SWITCH_DEBOUNCE_TIME_US (15'000ULL)
+
+static_assert(MIN_PULSE_WIDTH_US >= 50'000ULL,
+              "Minimum pulse width must be at least 50ms!");
+static_assert(MIN_PULSE_WIDTH_US > (SWITCH_DEBOUNCE_TIME_US * 2),
+              "Minimum pulse width insufficient for debounce time!");
 
 static constexpr std::uint32_t kDeviceInfoAddr{0x0};
 static constexpr std::uint32_t kPulseCountAddr{0x800};
@@ -270,28 +274,33 @@ int main(void) {
   ::pico_get_unique_board_id_string(board_id, sizeof(board_id));
 
   last_pulsecount = pulsecount;
-  static volatile ::absolute_time_t falling_edge_time = ::get_absolute_time();
-  static volatile bool pulse_started = false;
 
-  // When we see a falling edge, store the time that happened. When we see
-  // a rising edge, see how long the pulse was, and if it was long enough,
-  // increment the edge count. Else, we wait for the next falling edge.
+  static volatile ::absolute_time_t last_edge_time = ::nil_time;
+  static volatile bool switch_state = ::gpio_get(PIN_SWITCH);
   ::gpio_set_irq_enabled_with_callback(
       PIN_SWITCH, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true,
-      [](::uint, std::uint32_t event_mask) {
+      [](::uint, std::uint32_t) {
         const auto now = ::get_absolute_time();
-        if (!pulse_started && (event_mask & GPIO_IRQ_EDGE_FALL)) {
-          pulse_started = true;
-          falling_edge_time = now;
-        } else if (pulse_started && (event_mask & GPIO_IRQ_EDGE_RISE)) {
-          const auto diff = ::absolute_time_diff_us(falling_edge_time, now);
-          // Look for low pulses wide enough to be counted.
-          if (diff >= MIN_PULSE_WIDTH_US) {
-            // XXX: should this be set to false outside this condition?
-            pulse_started = false;
-            pulsecount = pulsecount + 1;
-          }
+
+        // This is the first edge seen.
+        if (::is_nil_time(last_edge_time)) [[unlikely]] {
+          last_edge_time = now;
+          switch_state = !switch_state;
+          return;
         }
+
+        const auto delta_t = ::absolute_time_diff_us(last_edge_time, now);
+        if (delta_t < SWITCH_DEBOUNCE_TIME_US) {
+          return;
+        }
+
+        switch_state = !switch_state;
+
+        if (switch_state && delta_t >= MIN_PULSE_WIDTH_US) {
+          pulsecount = pulsecount + 1;
+        }
+
+        last_edge_time = now;
       });
 
   char rdbuf[512] = {0};

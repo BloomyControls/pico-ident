@@ -27,14 +27,14 @@ target_link_libraries("${PROJECT_NAME}"
 target_compile_features("${PROJECT_NAME}" PUBLIC cxx_std_20)
 
 if (DEFINED MIN_PULSE_WIDTH_US)
-  if (MIN_PULSE_WIDTH_US GREATER_EQUAL 10)
+  if (MIN_PULSE_WIDTH_US GREATER_EQUAL 50000)
     target_compile_definitions("${PROJECT_NAME}" PRIVATE
       "-DCONFIG_MIN_PULSE_WIDTH_US=${MIN_PULSE_WIDTH_US}"
     )
   else()
     message(FATAL_ERROR
       "Invalid minimum pulse width: ${MIN_PULSE_WIDTH_US}\n"
-      "MIN_PULSE_WIDTH_US must be a number >= 10."
+      "MIN_PULSE_WIDTH_US must be a number >= 50000."
     )
   endif()
 endif()
