@@ -3,10 +3,25 @@
 This project uses a Raspberry Pi Pico to identify and store various information
 about a system/fixture, settable and retrievable over UART or USB. Additionally,
 writing can be disabled by jumping GPIO pins 14 and 15 together (pins 19 and 20
-on the board).
+on the board), and GPIO 13 (pin 17 on the board) can be switched to GND and used
+as a pulse counter, such as for a fixture lid switch. This pin is active low and
+counts any low pulse longer than a minimum time period (configurable by with a
+CMake variable).
 
-**Pre-built UF2 files ready to flash onto the Pico for both USB and UART are
-available [here](https://github.com/BloomyControls/pico-ident/releases).**
+This project makes use of a Pi Pico and a MIKROE EEPROM 3 Click. The I2C lines
+for the EEPROM should be connected to GPIOs 16 (SDA) and 17 (SCL) (pins 21 and
+22 on the board, respectively).
+
+**Pre-build UF2 binaries are available for USB or UART configurations
+[here][releases].**
+
+> [!IMPORTANT]
+> This is the new version with pulse counting using the AT24CM02 I2C EEPROM
+> chip. For the old version without pulse counting which uses only the Pico's
+> on-board flash, use [version 1.3.0][1.3.0].
+
+[releases]: https://github.com/BloomyControls/pico-ident/releases
+[1.3.0]: https://github.com/BloomyControls/pico-ident/releases/tag/v1.3.0
 
 ## Information Fields
 
@@ -15,12 +30,12 @@ read the Pico's unique 64-bit identifier as a hex string, but of course this is
 read-only. The idea is that the Pico's serial number can always be used to
 uniquely identify any device, as no two Picos have the same serial.
 
-It's worth noting that each sector (4096 bytes) of flash has a guaranteed
-minimum of 100,000 program-erase cycles according to the manufacturer. Each
-write to one of these fields will incur one erase and one program. This
-effectively limits us to 100,000 writes to any of these fields. Of course, the
-intended use of this device is to be set once and then write-locked for the rest
-of its lifespan, so that's likely not a huge concern here.
+The EEPROM specifies up to 1,000,000 writes per flash cell (per 4-byte word).
+Using a simple wear-leveling scheme using 16 words, the theoretical minimum
+number of pulses that can be counted without resetting is about 16 million. This
+is expected to be incredibly high for most applications, but by changing
+a constant, this number can be trivially increased for more demanding
+applications.
 
 | Field | Access | Description |
 |---|---|---|
@@ -35,6 +50,7 @@ of its lifespan, so that's likely not a huge concern here.
 | `USER3` | Read-write | General-purpose field 3 |
 | `USER4` | Read-write | General-purpose field 4 |
 | `SERIAL` | Read-only | Pico's unique 64-bit serial number |
+| `PULSECOUNT?` | Read-only | Low pulse count on GP13 (board pin 17) |
 
 Note that each of the above fields has a maximum length of 63. Each field is 64
 bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
@@ -61,12 +77,13 @@ to query the manufacturer:
 MFG?\r
 ```
 
-There are two additional commands:
+There are some additional commands:
 
 | Command | Description |
 |---|---|
 | `CLEAR` | Clear all writable fields |
-| `CHECK?` | Check that the data stored in flash matches the stored checksum, then return either `OK` or `ERR` |
+| `CHECK?` | Check that the data stored in EEPROM matches the stored checksum, then return either `OK` or `ERR` |
+| `RESETCOUNT` | Reset the pulse count to 0 |
 
 ## Build Requirements
 
@@ -91,6 +108,10 @@ cmake -B build
 This step may take quite some time, as it will download the Pi Pico SDK. If you
 wish to use USB for serial communications instead of UART, add `-DUSB_SERIAL=ON`
 to the above command.
+
+The default minimum pulse width is 100ms. To override this time limit, pass
+`-DMIN_PULSE_WIDTH_US=500000` to get 500ms (you can use any whole number of
+microseconds greater than or equal to 50,000).
 
 After the configuration step is done, you can build the project like so:
 

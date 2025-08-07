@@ -7,17 +7,37 @@ set(PICO_SDK_FETCH_FROM_GIT_TAG 2.1.1)
 
 include(pico_sdk_import.cmake)
 
-project("pico-ident" VERSION "1.3.0")
+project("pico-ident" VERSION "2.0.0")
 
 pico_sdk_init()
 
-add_executable(pico-ident src/main.c)
+add_executable(pico-ident
+  src/AT24CM02.cpp
+  src/main.cpp
+)
 
 target_link_libraries("${PROJECT_NAME}"
   pico_stdlib
   pico_unique_id
   hardware_flash
-  hardware_gpio)
+  hardware_gpio
+  hardware_i2c
+)
+
+target_compile_features("${PROJECT_NAME}" PUBLIC cxx_std_20)
+
+if (DEFINED MIN_PULSE_WIDTH_US)
+  if (MIN_PULSE_WIDTH_US GREATER_EQUAL 50000)
+    target_compile_definitions("${PROJECT_NAME}" PRIVATE
+      "-DCONFIG_MIN_PULSE_WIDTH_US=${MIN_PULSE_WIDTH_US}"
+    )
+  else()
+    message(FATAL_ERROR
+      "Invalid minimum pulse width: ${MIN_PULSE_WIDTH_US}\n"
+      "MIN_PULSE_WIDTH_US must be a number >= 50000."
+    )
+  endif()
+endif()
 
 option(USB_SERIAL "Use USB serial instead of UART" OFF)
 
