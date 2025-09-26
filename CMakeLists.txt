@@ -7,7 +7,7 @@ set(PICO_SDK_FETCH_FROM_GIT_TAG 2.1.1)
 
 include(pico_sdk_import.cmake)
 
-project("pico-ident" VERSION "2.0.0")
+project("pico-ident" VERSION "2.1.0")
 
 pico_sdk_init()
 
