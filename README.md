@@ -51,7 +51,7 @@ applications.
 | `USER3` | Read-write | General-purpose field 3 |
 | `USER4` | Read-write | General-purpose field 4 |
 | `SERIAL` | Read-only | Pico's unique 64-bit serial number |
-| `PULSECOUNT?` | Read-only | Low pulse count on GP13 (board pin 17) |
+| `PULSECOUNT?` | Read-only | Pulse count on GP12 (NO)/GP13 (NC) (board pins 16/17) |
 
 Note that each of the above fields has a maximum length of 63. Each field is 64
 bytes, but is null-terminated. Values longer than 63 bytes will be truncated.
