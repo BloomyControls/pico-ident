@@ -26,7 +26,8 @@
 /*
  * GPIO pins.
  */
-#define PIN_SWITCH (13)
+#define PIN_SWITCH_NO (12)
+#define PIN_SWITCH_NC (13)
 #define PIN_WRLOCK_OUT (14)
 #define PIN_WRLOCK_IN (15)
 #define PIN_SDA (16)
@@ -286,12 +287,17 @@ int main(void) {
   // Make the I2C pins available to picotool.
   bi_decl(bi_2pins_with_func(PIN_SDA, PIN_SCL, GPIO_FUNC_I2C));
 
-  ::gpio_init(PIN_SWITCH);
-  ::gpio_set_dir(PIN_SWITCH, GPIO_IN);
-  ::gpio_pull_up(PIN_SWITCH);
+  ::gpio_init(PIN_SWITCH_NO);
+  ::gpio_set_dir(PIN_SWITCH_NO, GPIO_IN);
+  ::gpio_pull_up(PIN_SWITCH_NO);
+  ::gpio_init(PIN_SWITCH_NC);
+  ::gpio_set_dir(PIN_SWITCH_NC, GPIO_IN);
+  ::gpio_pull_up(PIN_SWITCH_NC);
 
-  // Make the lid switch pin available to picotool.
-  bi_decl(bi_1pin_with_name(PIN_SWITCH, "Lid switch (active low)"));
+  // Make the lid switch pins available to picotool.
+  bi_decl(bi_2pins_with_names(
+          PIN_SWITCH_NO, "Lid switch (active low, normally open)",
+          PIN_SWITCH_NC, "Lid switch (active low, normally closed)"));
 
   // Load device info and make sure it's valid.
   LoadDeviceInfo();
@@ -305,32 +311,57 @@ int main(void) {
 
   last_pulsecount = pulsecount;
 
-  static volatile ::absolute_time_t last_edge_time = ::nil_time;
-  static volatile bool switch_state = ::gpio_get(PIN_SWITCH);
+  static volatile ::absolute_time_t last_edge_time_nc = ::nil_time;
+  static volatile ::absolute_time_t last_edge_time_no = ::nil_time;
+  static volatile bool switch_state_nc = ::gpio_get(PIN_SWITCH_NC);
+  static volatile bool switch_state_no = ::gpio_get(PIN_SWITCH_NO);
+  // Note: the callback set for the NO pin here also applies to the NC pin, as
+  // we are using the "easy" IRQ functionality and not actual raw IRQs.
+  ::gpio_set_irq_enabled(PIN_SWITCH_NC, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,
+                         true);
   ::gpio_set_irq_enabled_with_callback(
-      PIN_SWITCH, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true,
-      [](::uint, std::uint32_t) {
+      PIN_SWITCH_NO, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true,
+      [](::uint pin, std::uint32_t) {
         const auto now = ::get_absolute_time();
 
+        volatile ::absolute_time_t* p_last_edge_time;
+        volatile bool* p_switch_state;
+        bool pulse_count_state;
+        switch (pin) {
+          case PIN_SWITCH_NO:
+            p_last_edge_time = &last_edge_time_no;
+            p_switch_state = &switch_state_no;
+            pulse_count_state = true;
+            break;
+          case PIN_SWITCH_NC:
+            p_last_edge_time = &last_edge_time_nc;
+            p_switch_state = &switch_state_nc;
+            pulse_count_state = false;
+            break;
+          default:
+            return;  // ???
+        }
+
         // This is the first edge seen.
-        if (::is_nil_time(last_edge_time)) [[unlikely]] {
-          last_edge_time = now;
-          switch_state = !switch_state;
+        if (::is_nil_time(*p_last_edge_time)) [[unlikely]] {
+          *p_last_edge_time = now;
+          *p_switch_state = !*p_switch_state;
           return;
         }
 
-        const auto delta_t = ::absolute_time_diff_us(last_edge_time, now);
+        const auto delta_t = ::absolute_time_diff_us(*p_last_edge_time, now);
         if (delta_t < SWITCH_DEBOUNCE_TIME_US) {
           return;
         }
 
-        switch_state = !switch_state;
+        *p_switch_state = !*p_switch_state;
 
-        if (switch_state && delta_t >= MIN_PULSE_WIDTH_US) {
+        if (*p_switch_state == pulse_count_state &&
+            delta_t >= MIN_PULSE_WIDTH_US) {
           pulsecount = pulsecount + 1;
         }
 
-        last_edge_time = now;
+        *p_last_edge_time = now;
       });
 
   char rdbuf[512] = {0};

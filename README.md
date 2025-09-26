@@ -3,10 +3,11 @@
 This project uses a Raspberry Pi Pico to identify and store various information
 about a system/fixture, settable and retrievable over UART or USB. Additionally,
 writing can be disabled by jumping GPIO pins 14 and 15 together (pins 19 and 20
-on the board), and GPIO 13 (pin 17 on the board) can be switched to GND and used
-as a pulse counter, such as for a fixture lid switch. This pin is active low and
-counts any low pulse longer than a minimum time period (configurable by with a
-CMake variable).
+on the board), and either GPIO 12 or 13 (pins 16 and 17 on the board) can be
+used as a pulse counter, such as for a fixture lid switch. Both of these pins
+are active low and affect the same count. However, GPIO 12 is for a normally
+open switch and GPIO 13 is for a normally closed switch. These pins count any
+pulse longer than a minimum time period (configurable with a CMake variable).
 
 This project makes use of a Pi Pico and a MIKROE EEPROM 3 Click. The I2C lines
 for the EEPROM should be connected to GPIOs 16 (SDA) and 17 (SCL) (pins 21 and
