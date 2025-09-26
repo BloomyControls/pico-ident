@@ -37,12 +37,25 @@ jobs:
         cp ${{github.workspace}}/build/pico-ident.uf2 ${{github.workspace}}/pico-ident-usb.uf2
 
     - name: Create release
-      uses: ncipollo/release-action@v1.10.0
-      id: create_release
-      with:
-        draft: false
-        prerelease: false
-        artifacts: "${{github.workspace}}/pico-ident-*.uf2"
-        artifactErrorsFailBuild: true
-        generateReleaseNotes: true
-        token: ${{ github.token }}
+      env:
+        TAG_NAME: ${{ github.ref_name }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        release_args=(
+          "$TAG_NAME"
+          --title "${TAG_NAME}"
+          --target "$GITHUB_SHA"
+          --generate-notes
+        )
+
+        labeled_assets=(
+          "${{github.workspace}}/pico-ident-uart.uf2#pico-ident UF2 (UART)"
+          "${{github.workspace}}/pico-ident-usb.uf2#pico-ident UF2 (USB)"
+        )
+
+        # check for e.g., v1.1.0-rc0
+        if [[ $TAG_NAME == *-* ]]; then
+          release_args+=( --prerelease )
+        fi
+
+        gh release create "${release_args[@]}" -- "${labeled_assets[@]}"
